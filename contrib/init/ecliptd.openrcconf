@@ -1,0 +1,33 @@
+# /etc/conf.d/ecliptd: config file for /etc/init.d/ecliptd
+
+# Config file location
+#BLACKMORED_CONFIGFILE="/etc/eclipt/eclipt.conf"
+
+# What directory to write pidfile to?  (created and owned by $BLACKMORED_USER)
+#BLACKMORED_PIDDIR="/var/run/ecliptd"
+
+# What filename to give the pidfile
+#BLACKMORED_PIDFILE="${BLACKMORED_PIDDIR}/ecliptd.pid"
+
+# Where to write ecliptd data (be mindful that the blockchain is large)
+#BLACKMORED_DATADIR="/var/lib/ecliptd"
+
+# User and group to own ecliptd process
+#BLACKMORED_USER="eclipt"
+#BLACKMORED_GROUP="eclipt"
+
+# Path to ecliptd executable
+#BLACKMORED_BIN="/usr/bin/ecliptd"
+
+# Nice value to run ecliptd under
+#BLACKMORED_NICE=0
+
+# Additional options (avoid -conf and -datadir, use flags above)
+#BLACKMORED_OPTS=""
+
+# The timeout in seconds OpenRC will wait for ecliptd to terminate
+# after a SIGTERM has been raised.
+# Note that this will be mapped as argument to start-stop-daemon's
+# '--retry' option, which means you can specify a retry schedule
+# here. For more information see man 8 start-stop-daemon.
+BLACKMORED_SIGTERM_TIMEOUT=600

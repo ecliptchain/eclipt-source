@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+#
+#  ecliptd The eclipt more server.
+#
+#
+# chkconfig: 345 80 20
+# description: ecliptd
+# processname: ecliptd
+#
+
+# Source function library.
+. /etc/init.d/functions
+
+# you can override defaults in /etc/sysconfig/ecliptd, see below
+if [ -f /etc/sysconfig/ecliptd ]; then
+        . /etc/sysconfig/ecliptd
+fi
+
+RETVAL=0
+
+prog=ecliptd
+# you can override the lockfile via BLACKMORED_LOCKFILE in /etc/sysconfig/ecliptd
+lockfile=${BLACKMORED_LOCKFILE-/var/lock/subsys/ecliptd}
+
+# ecliptd defaults to /usr/bin/ecliptd, override with BLACKMORED_BIN
+ecliptd=${BLACKMORED_BIN-/usr/bin/ecliptd}
+
+# ecliptd opts default to -disablewallet, override with BLACKMORED_OPTS
+ecliptd_opts=${BLACKMORED_OPTS--disablewallet}
+
+start() {
+    echo -n $"Starting $prog: "
+    daemon $DAEMONOPTS $bitcoind $bitcoind_opts
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && touch $lockfile
+    return $RETVAL
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    killproc $prog -t600
+    RETVAL=$?
+    echo
+    [ $RETVAL -eq 0 ] && rm -f $lockfile
+    return $RETVAL
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status $prog
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+        echo "Usage: service $prog {start|stop|status|restart}"
+        exit 1
+        ;;
+esac
