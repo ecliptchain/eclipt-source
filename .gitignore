@@ -1,0 +1,7 @@
+/contrib/build
+/src/build
+src/bitcoin-qt.pro.user
+src/.DS_Store
+depends/.DS_Store
+contrib/bitcoin-qt.pro.user
+.DS_Store

@@ -10,6 +10,10 @@
         <translation>Создать новый адрес</translation>
     </message>
     <message>
+        <source>Level of trust:</source>
+        <translation>Уровень доверия:</translation>
+    </message>
+    <message>
         <source>&amp;New</source>
         <translation>&amp;Новый</translation>
     </message>

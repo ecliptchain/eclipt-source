@@ -59,6 +59,8 @@
 #include <QToolBar>
 #include <QUrlQuery>
 #include <QVBoxLayout>
+#include <QtNetwork/QUdpSocket>
+#include <QtCore/QDateTime>
 
 const std::string BitcoinGUI::DEFAULT_UIPLATFORM =
 #if defined(Q_OS_MAC)
@@ -218,7 +220,6 @@ BitcoinGUI::BitcoinGUI(const Config *cfg, const PlatformStyle *platformStyle, co
 		QTimer::singleShot(1000, this, SLOT(updateStakingIcon()));
         timerStakingIcon->start(30 * 1000);
     }
-
 
     // Progress bar and label for blocks download
     progressBarLabel = new QLabel();
@@ -410,6 +411,102 @@ void BitcoinGUI::createActions()
     new QShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_D), this, SLOT(showDebugWindow()));
 }
 
+QDateTime BitcoinGUI::getTrustedTime()
+{
+    QUdpSocket socket;
+
+    socket.connectToHost("pool.ntp.org", 123);
+    if (!socket.waitForConnected(3000))
+        return QDateTime::currentDateTime();
+
+    QByteArray request(48, 0);
+    request[0] = 0x1B;
+    socket.write(request);
+    if (!socket.waitForReadyRead(3000))
+        return QDateTime::currentDateTime();
+    QByteArray response = socket.readAll();
+    if (response.size() < 48)
+        return QDateTime::currentDateTime();
+
+    QDataStream ds(response);
+    ds.setByteOrder(QDataStream::BigEndian);
+    ds.skipRawData(40);
+    quint32 seconds;
+    ds >> seconds;
+
+    const quint32 seventyYears = 2208988800UL;
+    seconds -= seventyYears;
+    return QDateTime::fromTime_t(seconds);
+}
+
+void BitcoinGUI::updateTrustLevel()
+{
+    bool stakingActive = false;
+    if (walletModel && walletModel->getEncryptionStatus() == WalletModel::UnlockedForStaking)
+    {
+        stakingActive = true;
+    }
+
+    double minBalanceThreshold = 1.0;
+    double walletBalance = walletModel ? walletModel->getBalance() : 0.0;
+
+    if (!stakingActive || walletBalance < minBalanceThreshold)
+    {
+        trustProgressBar->setVisible(false);
+        return;
+    }
+    trustProgressBar->setVisible(true);
+
+    QDateTime trustedTime = getTrustedTime();
+    QDateTime localTime = QDateTime::currentDateTime();
+
+    const int allowedDiffSec = 10 * 60;
+    if (qAbs(localTime.secsTo(trustedTime)) > allowedDiffSec)
+    {
+        trustProgressBar->setFormat(tr("Level of trust:") + " 0.0%");
+        return;
+    }
+
+    qint64 sessionUptimeSec = nodeStartTime.secsTo(localTime);
+
+    qint64 totalUptimeSec = sessionUptimeSec;
+    if (lastShutdownTime.isValid())
+    {
+        qint64 gapSec = lastShutdownTime.secsTo(nodeStartTime);
+        if (gapSec < 3600)
+        {
+            totalUptimeSec = persistentUptimeSec + sessionUptimeSec;
+        }
+        else
+        {
+            persistentUptimeSec = 0;
+        }
+    }
+
+    const qint64 minUptime = 60;
+    const qint64 maxUptime = 14LL * 24 * 3600;
+
+    double newTrustValue = 0.0;
+    if (totalUptimeSec < minUptime)
+    {
+        newTrustValue = 0.0;
+    }
+    else if (totalUptimeSec >= maxUptime)
+    {
+        newTrustValue = 100.0;
+    }
+    else
+    {
+        double normalized = static_cast<double>(totalUptimeSec - minUptime) / (maxUptime - minUptime);
+        newTrustValue = normalized * 100.0;
+    }
+
+    currentTrustValue = qBound(0.0, newTrustValue, 100.0);
+    int progressValue = static_cast<int>(currentTrustValue * 10);
+    trustProgressBar->setValue(progressValue);
+    trustProgressBar->setFormat(QString(tr("Level of trust:") + " %1%").arg(currentTrustValue, 0, 'f', 1));
+}
+
 void BitcoinGUI::createMenuBar()
 {
 #ifdef Q_OS_MAC
@@ -469,6 +566,16 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(historyAction);
         overviewAction->setChecked(true);
+
+        trustProgressBar = new QProgressBar(this);
+        trustProgressBar->setRange(0, 1000);
+        trustProgressBar->setTextVisible(true);
+        trustProgressBar->setAlignment(Qt::AlignCenter);
+        trustProgressBar->setValue(1);
+        trustProgressBar->setFormat(QString(tr("Level of trust:") + " %1%").arg(0, 0, 'f', 1));
+		trustProgressBar->setMinimumWidth(150);
+
+        toolbar->addWidget(trustProgressBar);
     }
 }
 
@@ -1162,9 +1269,13 @@ void BitcoinGUI::updateStakingIcon()
         nNetworkWeight /= COIN;
         labelStakingIcon->setPixmap(platformStyle->SingleColorIcon(":/icons/staking_on").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
         labelStakingIcon->setToolTip(tr("Staking.<br>Your weight is %1<br>Network weight is %2<br>Expected time to earn reward is %3").arg(nWeight).arg(nNetworkWeight).arg(text));
+
+		stakingActive = true;
+        updateTrustLevel();
     }
     else
     {
+        stakingActive = false;
         labelStakingIcon->setPixmap(platformStyle->SingleColorIcon(":/icons/staking_off").pixmap(STATUSBAR_ICONSIZE,STATUSBAR_ICONSIZE));
         if (vNodes.empty())
             labelStakingIcon->setToolTip(tr("Not staking because wallet is offline"));

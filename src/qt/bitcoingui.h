@@ -17,6 +17,7 @@
 #include <QMenu>
 #include <QPoint>
 #include <QSystemTrayIcon>
+#include <QDateTime>
 
 #include <memory>
 
@@ -86,6 +87,7 @@ protected:
     bool eventFilter(QObject *object, QEvent *event);
 
 private:
+	QDateTime getTrustedTime();
     ClientModel *clientModel;
     WalletFrame *walletFrame;
 
@@ -97,6 +99,7 @@ private:
     QLabel *progressBarLabel;
     QLabel *labelStakingIcon;
     QProgressBar *progressBar;
+    QProgressBar *trustProgressBar;
     QProgressDialog *progressDialog;
 
     QMenuBar *appMenuBar;
